@@ -39,6 +39,7 @@ import { createMockCommandContext } from '../../test-utils/mockCommandContext.js
 import stripAnsi from 'strip-ansi';
 import chalk from 'chalk';
 import { StreamingState } from '../types.js';
+import type { UIState } from '../contexts/UIStateContext.js';
 
 vi.mock('../hooks/useShellHistory.js');
 vi.mock('../hooks/useCommandCompletion.js');
@@ -253,6 +254,7 @@ describe('InputPrompt', () => {
         getProjectRoot: () => path.join('test', 'project'),
         getTargetDir: () => path.join('test', 'project', 'src'),
         getVimMode: () => false,
+        getUseBackgroundColor: () => true,
         getWorkspaceContext: () => ({
           getDirectories: () => ['/test/project/src'],
         }),
@@ -1299,6 +1301,131 @@ describe('InputPrompt', () => {
     unmount();
   });
 
+  describe('Background Color Styles', () => {
+    let originalGetColorDepth: () => number;
+
+    beforeEach(() => {
+      originalGetColorDepth = process.stdout.getColorDepth;
+    });
+
+    afterEach(() => {
+      process.stdout.getColorDepth = originalGetColorDepth;
+      vi.restoreAllMocks();
+    });
+
+    it('should render with background color by default', async () => {
+      const { stdout, unmount } = renderWithProviders(
+        <InputPrompt {...props} />,
+      );
+
+      await waitFor(() => {
+        const frame = stdout.lastFrame();
+        expect(frame).toContain('▀');
+        expect(frame).toContain('▄');
+      });
+      unmount();
+    });
+
+    it.each([
+      { color: 'black', name: 'black' },
+      { color: '#000000', name: '#000000' },
+      { color: '#000', name: '#000' },
+      { color: undefined, name: 'default (black)' },
+      { color: 'white', name: 'white' },
+      { color: '#ffffff', name: '#ffffff' },
+      { color: '#fff', name: '#fff' },
+    ])(
+      'should render with safe grey background but NO side borders in 8-bit mode when background is $name',
+      async ({ color }) => {
+        process.stdout.getColorDepth = vi.fn().mockReturnValue(8);
+
+        const { stdout, unmount } = renderWithProviders(
+          <InputPrompt {...props} />,
+          {
+            uiState: {
+              terminalBackgroundColor: color,
+            } as Partial<UIState>,
+          },
+        );
+
+        const isWhite =
+          color === 'white' || color === '#ffffff' || color === '#fff';
+        const expectedBgColor = isWhite ? '#e4e4e4' : '#262626';
+
+        await waitFor(() => {
+          const frame = stdout.lastFrame();
+
+          // Use chalk to get the expected background color escape sequence
+          const bgCheck = chalk.bgHex(expectedBgColor)(' ');
+          const bgCode = bgCheck.substring(0, bgCheck.indexOf(' '));
+
+          // Background color code should be present
+          expect(frame).toContain(bgCode);
+          // Background characters should be rendered
+          expect(frame).toContain('▀');
+          expect(frame).toContain('▄');
+          // Side borders should STILL be removed
+          expect(frame).not.toContain('│');
+        });
+
+        unmount();
+      },
+    );
+
+    it('should NOT render with background color or side borders when color depth is < 24 and background is NOT black', async () => {
+      process.stdout.getColorDepth = vi.fn().mockReturnValue(8);
+
+      const { stdout, unmount } = renderWithProviders(
+        <InputPrompt {...props} />,
+        {
+          uiState: {
+            terminalBackgroundColor: '#333333',
+          } as Partial<UIState>,
+        },
+      );
+
+      await waitFor(() => {
+        const frame = stdout.lastFrame();
+        expect(frame).not.toContain('▀');
+        expect(frame).not.toContain('▄');
+        expect(frame).not.toContain('│');
+      });
+
+      unmount();
+    });
+
+    it('should handle 4-bit color mode (16 colors) as low color depth', async () => {
+      process.stdout.getColorDepth = vi.fn().mockReturnValue(4);
+
+      const { stdout, unmount } = renderWithProviders(
+        <InputPrompt {...props} />,
+      );
+
+      await waitFor(() => {
+        const frame = stdout.lastFrame();
+        expect(frame).toContain('▀');
+        expect(frame).not.toContain('│');
+      });
+      unmount();
+    });
+
+    it('should render with plain borders when useBackgroundColor is false', async () => {
+      props.config.getUseBackgroundColor = () => false;
+      const { stdout, unmount } = renderWithProviders(
+        <InputPrompt {...props} />,
+      );
+
+      await waitFor(() => {
+        const frame = stdout.lastFrame();
+        expect(frame).not.toContain('▀');
+        expect(frame).not.toContain('▄');
+        // Check for Box borders (round style uses unicode box chars)
+        expect(frame).toMatch(/[─│┐└┘┌]/);
+      });
+      unmount();
+    });
+  });
+
   describe('cursor-based completion trigger', () => {
     it.each([
       {
@@ -1545,7 +1672,7 @@ describe('InputPrompt', () => {
           mockBuffer.visualCursor = visualCursor as [number, number];
 
           const { stdout, unmount } = renderWithProviders(
-            <InputPrompt {...props} />,
+            <InputPrompt {...props} isAlternateBuffer={true} />,
           );
 
           await waitFor(() => {
@@ -1602,7 +1729,7 @@ describe('InputPrompt', () => {
           >;
 
           const { stdout, unmount } = renderWithProviders(
-            <InputPrompt {...props} />,
+            <InputPrompt {...props} isAlternateBuffer={true} />,
           );
 
           await waitFor(() => {
@@ -1626,7 +1753,7 @@ describe('InputPrompt', () => {
         ];
 
         const { stdout, unmount } = renderWithProviders(
-          <InputPrompt {...props} />,
+          <InputPrompt {...props} isAlternateBuffer={true} />,
         );
 
         await waitFor(() => {
@@ -1658,7 +1785,7 @@ describe('InputPrompt', () => {
       ];
 
       const { stdout, unmount } = renderWithProviders(
-        <InputPrompt {...props} />,
+        <InputPrompt {...props} isAlternateBuffer={true} />,
       );
 
       await waitFor(() => {
@@ -2424,28 +2551,28 @@ describe('InputPrompt', () => {
         name: 'first line, first char',
         relX: 0,
         relY: 0,
-        mouseCol: 5,
+        mouseCol: 4,
         mouseRow: 2,
       },
       {
         name: 'first line, middle char',
         relX: 6,
         relY: 0,
-        mouseCol: 11,
+        mouseCol: 10,
         mouseRow: 2,
       },
       {
         name: 'second line, first char',
         relX: 0,
         relY: 1,
-        mouseCol: 5,
+        mouseCol: 4,
         mouseRow: 3,
       },
       {
         name: 'second line, end char',
         relX: 5,
         relY: 1,
-        mouseCol: 10,
+        mouseCol: 9,
         mouseRow: 3,
       },
     ])(
@@ -2472,7 +2599,7 @@ describe('InputPrompt', () => {
         });
 
         // Simulate left mouse press at calculated coordinates.
-        // Assumes inner box is at x=4, y=1 based on border(1)+padding(1)+prompt(2) and border-top(1).
+        // Without left border: inner box is at x=3, y=1 based on padding(1)+prompt(2) and border-top(1).
         await act(async () => {
           stdin.write(`\x1b[<0;${mouseCol};${mouseRow}M`);
         });
@@ -2510,6 +2637,37 @@ describe('InputPrompt', () => {
 
       await waitFor(() => {
         expect(mockSetEmbeddedShellFocused).toHaveBeenCalledWith(false);
+      });
+
+      unmount();
+    });
+
+    it('should move cursor on mouse click with plain borders', async () => {
+      props.config.getUseBackgroundColor = () => false;
+      props.buffer.text = 'hello world';
+      props.buffer.lines = ['hello world'];
+      props.buffer.viewportVisualLines = ['hello world'];
+      props.buffer.visualToLogicalMap = [[0, 0]];
+      props.buffer.visualCursor = [0, 11];
+      props.buffer.visualScrollRow = 0;
+
+      const { stdin, stdout, unmount } = renderWithProviders(
+        <InputPrompt {...props} />,
+        { mouseEventsEnabled: true, uiActions },
+      );
+
+      // Wait for initial render
+      await waitFor(() => {
+        expect(stdout.lastFrame()).toContain('hello world');
+      });
+
+      // With plain borders: 1(border) + 1(padding) + 2(prompt) = 4 offset (x=4, col=5)
+      await act(async () => {
+        stdin.write(`\x1b[<0;5;2M`); // Click at col 5, row 2
+      });
+
+      await waitFor(() => {
+        expect(props.buffer.moveToVisualPosition).toHaveBeenCalledWith(0, 0);
       });
 
       unmount();

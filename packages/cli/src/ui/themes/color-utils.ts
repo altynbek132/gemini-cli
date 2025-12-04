@@ -270,3 +270,23 @@ export function getThemeTypeFromBackgroundColor(
 
   return luminance > 128 ? 'light' : 'dark';
 }
+
+/**
+ * Applies an alpha (opacity) to a color by interpolating towards a background color.
+ * @param color The color to apply alpha to (hex or name).
+ * @param alpha The alpha value (0-1), where 1 is fully opaque and 0 is fully transparent (background color).
+ * @param backgroundColor The background color to blend with (defaults to 'black').
+ * @returns The resulting color as a hex string.
+ */
+export function applyAlpha(
+  color: string,
+  alpha: number,
+  backgroundColor = 'black',
+): string {
+  const resolved = resolveColor(color);
+  if (!resolved) {
+    return color;
+  }
+  // Interpolate towards the background color to simulate transparency
+  return interpolateColor(resolved, backgroundColor, 1 - alpha);
+}

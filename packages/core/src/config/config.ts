@@ -318,6 +318,7 @@ export interface ConfigParameters {
   compressionThreshold?: number;
   interactive?: boolean;
   trustedFolder?: boolean;
+  useBackgroundColor?: boolean;
   useRipgrep?: boolean;
   enableInteractiveShell?: boolean;
   skipNextSpeakerCheck?: boolean;
@@ -448,6 +449,7 @@ export class Config {
   private readonly useRipgrep: boolean;
   private readonly enableInteractiveShell: boolean;
   private readonly skipNextSpeakerCheck: boolean;
+  private readonly useBackgroundColor: boolean;
   private shellExecutionConfig: ShellExecutionConfig;
   private readonly extensionManagement: boolean = true;
   private readonly enablePromptCompletion: boolean = false;
@@ -589,6 +591,7 @@ export class Config {
     this.ptyInfo = params.ptyInfo ?? 'child_process';
     this.trustedFolder = params.trustedFolder;
     this.useRipgrep = params.useRipgrep ?? true;
+    this.useBackgroundColor = params.useBackgroundColor ?? true;
     this.enableInteractiveShell = params.enableInteractiveShell ?? false;
     this.skipNextSpeakerCheck = params.skipNextSpeakerCheck ?? true;
     this.shellExecutionConfig = {
@@ -1579,6 +1582,10 @@ export class Config {
 
   getUseRipgrep(): boolean {
     return this.useRipgrep;
+  }
+
+  getUseBackgroundColor(): boolean {
+    return this.useBackgroundColor;
   }
 
   getEnableInteractiveShell(): boolean {
