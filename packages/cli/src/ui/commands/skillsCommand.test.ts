@@ -35,7 +35,7 @@ describe('skillsCommand', () => {
     });
   });
 
-  it('should add a SKILLS_LIST item to UI', async () => {
+  it('should add a SKILLS_LIST item to UI with descriptions by default', async () => {
     await skillsCommand.action(context);
 
     expect(context.ui.addItem).toHaveBeenCalledWith(
@@ -45,18 +45,18 @@ describe('skillsCommand', () => {
           { name: 'skill1', description: 'desc1' },
           { name: 'skill2', description: 'desc2' },
         ],
-        showDescriptions: false,
+        showDescriptions: true,
       }),
       expect.any(Number),
     );
   });
 
-  it('should enable descriptions if "desc" arg is provided', async () => {
-    await skillsCommand.action(context, 'desc');
+  it('should disable descriptions if "nodesc" arg is provided', async () => {
+    await skillsCommand.action(context, 'nodesc');
 
     expect(context.ui.addItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        showDescriptions: true,
+        showDescriptions: false,
       }),
       expect.any(Number),
     );

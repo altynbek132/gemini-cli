@@ -209,6 +209,7 @@ export type HistoryItemToolsList = HistoryItemBase & {
 export interface SkillDefinition {
   name: string;
   description: string;
+  disabled?: boolean;
 }
 
 export type HistoryItemSkillsList = HistoryItemBase & {

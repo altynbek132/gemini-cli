@@ -12,7 +12,8 @@ import yaml from 'js-yaml';
 export interface SkillMetadata {
   name: string;
   description: string;
-  location: string; // Absolute path to SKILL.md
+  location: string;
+  disabled?: boolean;
 }
 
 export interface SkillContent extends SkillMetadata {

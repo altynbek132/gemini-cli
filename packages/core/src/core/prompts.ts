@@ -131,7 +131,10 @@ export async function getCoreSystemPrompt(
 
   const interactiveMode = config.isInteractiveShellEnabled();
 
-  const skills = config.getSkillManager().getSkills();
+  const skills = config
+    .getSkillManager()
+    .getSkills()
+    .filter((s) => !s.disabled);
   let skillsPrompt = '';
   if (skills.length > 0) {
     const skillsJson = JSON.stringify(

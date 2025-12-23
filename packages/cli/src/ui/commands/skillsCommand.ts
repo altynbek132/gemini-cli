@@ -15,7 +15,7 @@ import { SettingScope } from '../../config/settings.js';
 export const skillsCommand: SlashCommand = {
   name: 'skills',
   description:
-    'List, enable, or disable Gemini CLI agent skills. Usage: /skills [desc | disable <name> | enable <name>]',
+    'List, enable, or disable Gemini CLI agent skills. Usage: /skills [nodesc | disable <name> | enable <name>]',
   kind: CommandKind.BUILT_IN,
   autoExecute: false,
   subCommands: [
@@ -156,10 +156,10 @@ export const skillsCommand: SlashCommand = {
       return skillsCommand.subCommands![1].action(context, '');
     }
 
-    // Default to NOT showing descriptions. The user must opt in with an argument.
-    let useShowDescriptions = false;
-    if (subCommand === 'desc' || subCommand === 'descriptions') {
-      useShowDescriptions = true;
+    // Default to SHOWING descriptions. The user can hide them with 'nodesc'.
+    let useShowDescriptions = true;
+    if (subCommand === 'nodesc') {
+      useShowDescriptions = false;
     }
 
     const skillManager = context.services.config?.getSkillManager();
@@ -181,6 +181,7 @@ export const skillsCommand: SlashCommand = {
       skills: skills.map((skill) => ({
         name: skill.name,
         description: skill.description,
+        disabled: skill.disabled,
       })),
       showDescriptions: useShowDescriptions,
     };

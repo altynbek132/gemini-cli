@@ -31,8 +31,13 @@ export const SkillsList: React.FC<SkillsListProps> = ({
         <Box key={skill.name} flexDirection="row">
           <Text color={theme.text.primary}>{'  '}- </Text>
           <Box flexDirection="column">
-            <Text bold color={theme.text.accent}>
+            <Text
+              bold
+              color={skill.disabled ? theme.text.secondary : theme.text.accent}
+              dimColor={skill.disabled}
+            >
               {skill.name}
+              {skill.disabled ? ' (disabled)' : ''}
             </Text>
             {showDescriptions && skill.description && (
               <MarkdownDisplay
