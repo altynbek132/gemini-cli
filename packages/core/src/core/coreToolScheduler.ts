@@ -701,7 +701,7 @@ export class CoreToolScheduler {
           await invocation.shouldConfirmExecute(signal);
 
         const requiresConfirmation =
-          !!confirmationDetails ||
+          (!!confirmationDetails && decision !== PolicyDecision.ALLOW) ||
           hookDecision === 'ask' ||
           decision === PolicyDecision.ASK_USER;
 
