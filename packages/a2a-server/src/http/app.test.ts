@@ -9,6 +9,7 @@ import {
   GeminiEventType,
   ApprovalMode,
   type ToolCallConfirmationDetails,
+  PolicyDecision,
 } from '@google/gemini-cli-core';
 import type {
   TaskStatusUpdateEvent,
@@ -69,6 +70,7 @@ const getToolRegistrySpy = vi.fn().mockReturnValue(ApprovalMode.DEFAULT);
 const getApprovalModeSpy = vi.fn();
 const getShellExecutionConfigSpy = vi.fn();
 const getExtensionsSpy = vi.fn();
+const getPolicyEngineSpy = vi.fn();
 
 vi.mock('../config/config.js', async () => {
   const actual = await vi.importActual('../config/config.js');
@@ -80,6 +82,7 @@ vi.mock('../config/config.js', async () => {
         getApprovalMode: getApprovalModeSpy,
         getShellExecutionConfig: getShellExecutionConfigSpy,
         getExtensions: getExtensionsSpy,
+        getPolicyEngine: getPolicyEngineSpy,
       });
       config = mockConfig as Config;
       return config;
@@ -113,6 +116,9 @@ describe('E2E Tests', () => {
 
   beforeEach(() => {
     getApprovalModeSpy.mockReturnValue(ApprovalMode.DEFAULT);
+    getPolicyEngineSpy.mockReturnValue({
+      check: async () => ({ decision: PolicyDecision.ASK_USER }),
+    });
   });
 
   afterAll(
@@ -566,6 +572,7 @@ describe('E2E Tests', () => {
     const mockTool = new MockTool({
       name: 'test-tool-no-approval',
       displayName: 'Test Tool No Approval',
+      shouldConfirmExecute: vi.fn().mockResolvedValue(false),
       execute: vi.fn().mockResolvedValue({
         llmContent: 'Tool executed successfully.',
         returnDisplay: 'Tool executed successfully.',

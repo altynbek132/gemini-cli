@@ -88,13 +88,7 @@ const mockConfig = {
 mockConfig.getMessageBus = vi.fn().mockReturnValue(createMockMessageBus());
 mockConfig.getHookSystem = vi.fn().mockReturnValue(new HookSystem(mockConfig));
 mockConfig.getPolicyEngine = vi.fn().mockReturnValue({
-  check: async () => {
-    const mode = mockConfig.getApprovalMode();
-    if (mode === ApprovalMode.YOLO) {
-      return { decision: PolicyDecision.ALLOW };
-    }
-    return { decision: PolicyDecision.ASK_USER };
-  },
+  check: async () => ({ decision: PolicyDecision.ALLOW }),
 });
 
 function createMockConfigOverride(overrides: Partial<Config> = {}): Config {
@@ -505,6 +499,9 @@ describe('useReactToolScheduler', () => {
     mockToolRegistry.getTool.mockReturnValue(mockToolRequiresConfirmation);
     const config = createMockConfigOverride({
       isInteractive: () => true,
+      getPolicyEngine: vi.fn().mockReturnValue({
+        check: async () => ({ decision: PolicyDecision.ASK_USER }),
+      }),
     });
     const expectedOutput = 'Confirmed output';
     (mockToolRequiresConfirmation.execute as Mock).mockResolvedValue({
@@ -558,6 +555,9 @@ describe('useReactToolScheduler', () => {
     mockToolRegistry.getTool.mockReturnValue(mockToolRequiresConfirmation);
     const config = createMockConfigOverride({
       isInteractive: () => true,
+      getPolicyEngine: vi.fn().mockReturnValue({
+        check: async () => ({ decision: PolicyDecision.ASK_USER }),
+      }),
     });
     const { result } = renderScheduler(config);
     const schedule = result.current[1];

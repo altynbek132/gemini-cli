@@ -79,7 +79,9 @@ function createMockConfig(overrides: Partial<Config> = {}): Config {
     getGeminiClient: () => null,
     getMessageBus: () => createMockMessageBus(),
     getEnableHooks: () => true,
-    getPolicyEngine: () => null,
+    getPolicyEngine: () => ({
+      check: vi.fn().mockResolvedValue({ decision: 'allow' }),
+    }),
     getExperiments: () => {},
   } as unknown as Config;
 
