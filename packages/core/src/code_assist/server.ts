@@ -51,6 +51,7 @@ import {
   recordConversationOffered,
 } from './telemetry.js';
 import { getClientMetadata } from './experiments/client_metadata.js';
+import { debugLogger } from '../utils/debugLogger.js';
 /** HTTP options to be used in each of the requests. */
 export interface HttpOptions {
   /** Additional HTTP headers to be sent with the request. */
@@ -278,6 +279,8 @@ export class CodeAssistServer implements ContentGenerator {
     req: object,
     signal?: AbortSignal,
   ): Promise<T> {
+    debugLogger.log(`🚀~server.ts:282~CodeAssistServer~:`);
+
     const res = await this.client.request({
       url: this.getMethodUrl(method),
       method: 'POST',
@@ -296,6 +299,8 @@ export class CodeAssistServer implements ContentGenerator {
     url: string,
     signal?: AbortSignal,
   ): Promise<T> {
+    debugLogger.log(`🚀~server.ts:299~CodeAssistServer~:`);
+
     const res = await this.client.request({
       url,
       method: 'GET',
@@ -322,6 +327,25 @@ export class CodeAssistServer implements ContentGenerator {
     req: object,
     signal?: AbortSignal,
   ): Promise<AsyncGenerator<T>> {
+    debugLogger.log(`🚀~server.ts:325~CodeAssistServer~:`);
+
+    const opts = {
+      url: this.getMethodUrl(method),
+      method: 'POST',
+      params: {
+        alt: 'sse',
+      },
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.httpOptions.headers,
+      },
+      responseType: 'stream',
+      body: req,
+      signal,
+    };
+
+    debugLogger.log('🚀 Streaming POST opts:', JSON.stringify(opts));
+
     const res = await this.client.request({
       url: this.getMethodUrl(method),
       method: 'POST',
