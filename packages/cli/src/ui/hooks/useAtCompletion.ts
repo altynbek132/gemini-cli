@@ -196,7 +196,7 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
     setIsLoadingSuggestions,
   } = props;
   const [state, dispatch] = useReducer(atCompletionReducer, initialState);
-  const fileSearch = useRef<FileSearch | null>(null);
+  const fileSearchers = useRef<FileSearch[]>([]);
   const searchAbortController = useRef<AbortController | null>(null);
   const slowSearchTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -244,33 +244,42 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
   useEffect(() => {
     const initialize = async () => {
       try {
-        const searcher = FileSearchFactory.create({
-          projectRoot: cwd,
-          ignoreDirs: [],
-          useGitignore:
-            config?.getFileFilteringOptions()?.respectGitIgnore ?? true,
-          useGeminiignore:
-            config?.getFileFilteringOptions()?.respectGeminiIgnore ?? true,
-          cache: true,
-          cacheTtl: 30, // 30 seconds
-          enableRecursiveFileSearch:
-            config?.getEnableRecursiveFileSearch() ?? true,
-          disableFuzzySearch:
-            config?.getFileFilteringDisableFuzzySearch() ?? false,
-        });
-        await searcher.initialize();
-        fileSearch.current = searcher;
+        const roots = config?.getWorkspaceContext()?.getDirectories() ?? [cwd];
+
+        const searchers = await Promise.all(
+          roots.map(async (root) => {
+            const s = FileSearchFactory.create({
+              projectRoot: root,
+              ignoreDirs: [],
+              useGitignore:
+                config?.getFileFilteringOptions()?.respectGitIgnore ?? true,
+              useGeminiignore:
+                config?.getFileFilteringOptions()?.respectGeminiIgnore ?? true,
+              cache: true,
+              cacheTtl: 30, // 30 seconds
+              enableRecursiveFileSearch:
+                config?.getEnableRecursiveFileSearch() ?? true,
+              disableFuzzySearch:
+                config?.getFileFilteringDisableFuzzySearch() ?? false,
+            });
+            await s.initialize();
+            return s;
+          }),
+        );
+
+        fileSearchers.current = searchers;
         dispatch({ type: 'INITIALIZE_SUCCESS' });
+
         if (state.pattern !== null) {
           dispatch({ type: 'SEARCH', payload: state.pattern });
         }
-      } catch (_) {
+      } catch (e) {
         dispatch({ type: 'ERROR' });
       }
     };
 
     const search = async () => {
-      if (!fileSearch.current || state.pattern === null) {
+      if (fileSearchers.current.length === 0 || state.pattern === null) {
         return;
       }
 
@@ -286,10 +295,15 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
       }, 200);
 
       try {
-        const results = await fileSearch.current.search(state.pattern, {
-          signal: controller.signal,
-          maxResults: MAX_SUGGESTIONS_TO_SHOW * 3,
-        });
+        // Search across all roots
+        const searchResults = await Promise.all(
+          fileSearchers.current.map((searcher) =>
+            searcher.search(state.pattern!, {
+              signal: controller.signal,
+              maxResults: MAX_SUGGESTIONS_TO_SHOW,
+            }),
+          ),
+        );
 
         if (slowSearchTimer.current) {
           clearTimeout(slowSearchTimer.current);
@@ -299,7 +313,10 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
           return;
         }
 
-        const fileSuggestions = results.map((p) => ({
+        // Flatten and deduplicate results
+        const combinedFiles = Array.from(new Set(searchResults.flat()));
+
+        const fileSuggestions = combinedFiles.map((p) => ({
           label: p,
           value: escapePath(p),
         }));
