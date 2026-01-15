@@ -10,6 +10,7 @@ import os from 'node:os';
 import pathMod from 'node:path';
 import * as path from 'node:path';
 import { useState, useCallback, useEffect, useMemo, useReducer } from 'react';
+import { parse } from 'shell-quote';
 import {
   coreEvents,
   CoreEvent,
@@ -2153,11 +2154,16 @@ export function useTextBuffer({
 
   const openInExternalEditor = useCallback(
     async (opts: { editor?: string } = {}): Promise<void> => {
-      const editor =
+      const editorEnv =
         opts.editor ??
         process.env['VISUAL'] ??
         process.env['EDITOR'] ??
         (process.platform === 'win32' ? 'notepad' : 'vi');
+
+      const editorParts = parse(editorEnv);
+      const executable = editorParts[0] as string;
+      const editorArgs = editorParts.slice(1) as string[];
+
       const tmpDir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'gemini-edit-'));
       const filePath = pathMod.join(tmpDir, 'buffer.txt');
       fs.writeFileSync(filePath, text, 'utf8');
@@ -2167,9 +2173,14 @@ export function useTextBuffer({
       const wasRaw = stdin?.isRaw ?? false;
       try {
         setRawMode?.(false);
-        const { status, error } = spawnSync(editor, [filePath], {
-          stdio: 'inherit',
-        });
+        const { status, error } = spawnSync(
+          executable,
+          [...editorArgs, filePath],
+          {
+            stdio: 'inherit',
+          },
+        );
+
         if (error) throw error;
         if (typeof status === 'number' && status !== 0)
           throw new Error(`External editor exited with status ${status}`);
